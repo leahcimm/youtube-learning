@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YouTube Learning</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #fafafa;
+      color: #262626;
+      min-height: 100vh;
+    }
+
+    /* ── Header (Instagram-style) ── */
+    header {
+      background: #fff;
+      border-bottom: 1px solid #dbdbdb;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      padding: 0 20px;
+    }
+
+    .header-inner {
+      max-width: 935px;
+      margin: 0 auto;
+      height: 54px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo {
+      font-size: 22px;
+      font-weight: 700;
+      background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.5px;
+    }
+
+    .logo-icon {
+      display: inline-block;
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+      border-radius: 8px;
+      margin-right: 8px;
+      vertical-align: middle;
+      position: relative;
+      top: -1px;
+    }
+
+    /* ── Main layout ── */
+    main {
+      max-width: 614px;
+      margin: 32px auto;
+      padding: 0 20px;
+    }
+
+    /* ── Input card ── */
+    .input-card {
+      background: #fff;
+      border: 1px solid #dbdbdb;
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .input-card h2 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #262626;
+      margin-bottom: 6px;
+    }
+
+    .input-card p {
+      font-size: 13px;
+      color: #8e8e8e;
+      margin-bottom: 16px;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .url-input {
+      flex: 1;
+      border: 1px solid #dbdbdb;
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 14px;
+      color: #262626;
+      background: #fafafa;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .url-input:focus {
+      border-color: #a8a8a8;
+      background: #fff;
+    }
+
+    .url-input::placeholder { color: #c7c7c7; }
+
+    .analyze-btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+      background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.15s;
+    }
+
+    .analyze-btn:hover { opacity: 0.88; }
+    .analyze-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Loading ── */
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 40px 0;
+    }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid #dbdbdb;
+      border-top-color: #dc2743;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 12px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading p { font-size: 14px; color: #8e8e8e; }
+
+    /* ── Error ── */
+    .error-box {
+      display: none;
+      background: #fff0f0;
+      border: 1px solid #ffcdd2;
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      font-size: 14px;
+      color: #c62828;
+    }
+
+    /* ── Result card ── */
+    .result-card {
+      display: none;
+      background: #fff;
+      border: 1px solid #dbdbdb;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+
+    /* Video thumbnail */
+    .video-header {
+      position: relative;
+      background: #000;
+    }
+
+    .video-header img {
+      width: 100%;
+      display: block;
+      opacity: 0.9;
+    }
+
+    .video-play-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.25);
+      text-decoration: none;
+    }
+
+    .play-btn {
+      width: 56px;
+      height: 56px;
+      background: rgba(255,255,255,0.92);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.15s;
+    }
+
+    .play-btn svg { width: 22px; height: 22px; fill: #dc2743; margin-left: 3px; }
+    .video-play-overlay:hover .play-btn { transform: scale(1.08); }
+
+    /* Card body */
+    .card-body { padding: 20px; }
+
+    .video-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: #262626;
+      margin-bottom: 8px;
+      line-height: 1.3;
+    }
+
+    .video-summary {
+      font-size: 14px;
+      color: #8e8e8e;
+      line-height: 1.5;
+      margin-bottom: 20px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #efefef;
+    }
+
+    /* Key points */
+    .section-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #8e8e8e;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    .key-points { list-style: none; display: flex; flex-direction: column; gap: 14px; }
+
+    .key-point {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+
+    .kp-emoji {
+      font-size: 22px;
+      width: 40px;
+      height: 40px;
+      background: #fafafa;
+      border: 1px solid #efefef;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .kp-text { flex: 1; }
+
+    .kp-heading {
+      font-size: 14px;
+      font-weight: 700;
+      color: #262626;
+      margin-bottom: 3px;
+    }
+
+    .kp-detail {
+      font-size: 13px;
+      color: #8e8e8e;
+      line-height: 1.5;
+    }
+
+    /* Takeaway */
+    .takeaway-box {
+      margin-top: 20px;
+      padding: 16px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #fff0f3 0%, #fff5f0 100%);
+      border: 1px solid #ffd6df;
+    }
+
+    .takeaway-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      background: linear-gradient(45deg, #dc2743, #bc1888);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 6px;
+    }
+
+    .takeaway-text {
+      font-size: 14px;
+      font-weight: 600;
+      color: #262626;
+      line-height: 1.5;
+    }
+
+    /* History feed */
+    .history-section { margin-top: 8px; }
+
+    .history-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #8e8e8e;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 12px;
+    }
+
+    .history-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 3px;
+    }
+
+    .history-thumb {
+      position: relative;
+      aspect-ratio: 1;
+      cursor: pointer;
+      overflow: hidden;
+      background: #efefef;
+    }
+
+    .history-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: opacity 0.15s;
+    }
+
+    .history-thumb:hover img { opacity: 0.75; }
+
+    .history-thumb-title {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(transparent, rgba(0,0,0,0.7));
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 12px 6px 6px;
+      line-height: 1.3;
+    }
+
+    .empty-history {
+      text-align: center;
+      padding: 32px;
+      color: #c7c7c7;
+      font-size: 14px;
+      background: #fff;
+      border: 1px solid #dbdbdb;
+      border-radius: 8px;
+    }
+
+    .empty-history .icon { font-size: 36px; margin-bottom: 10px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 480px) {
+      .input-row { flex-direction: column; }
+      .header-inner { height: 48px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <span class="logo-icon"></span>
+      YouTube Learning
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- Input card -->
+  <div class="input-card">
+    <h2>Paste a YouTube Link</h2>
+    <p>Get the core ideas from any video — instantly.</p>
+    <div class="input-row">
+      <input
+        id="urlInput"
+        class="url-input"
+        type="text"
+        placeholder="https://www.youtube.com/watch?v=..."
+        autocomplete="off"
+      />
+      <button id="analyzeBtn" class="analyze-btn" onclick="analyze()">
+        Analyze
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <p>Reading the video &amp; extracting key points…</p>
+  </div>
+
+  <!-- Error -->
+  <div class="error-box" id="errorBox"></div>
+
+  <!-- Result -->
+  <div class="result-card" id="resultCard">
+    <div class="video-header" id="videoHeader"></div>
+    <div class="card-body">
+      <div class="video-title" id="videoTitle"></div>
+      <div class="video-summary" id="videoSummary"></div>
+      <div class="section-label">Key Points</div>
+      <ul class="key-points" id="keyPoints"></ul>
+      <div class="takeaway-box">
+        <div class="takeaway-label">Key Takeaway</div>
+        <div class="takeaway-text" id="takeaway"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- History -->
+  <div class="history-section" id="historySection">
+    <div class="history-label">Your Library</div>
+    <div id="historyContent">
+      <div class="empty-history">
+        <div class="icon">🎬</div>
+        Analyzed videos will appear here
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+  let history = JSON.parse(localStorage.getItem("yl_history") || "[]");
+
+  function saveToHistory(data) {
+    history.unshift(data);
+    if (history.length > 30) history = history.slice(0, 30);
+    localStorage.setItem("yl_history", JSON.stringify(history));
+    renderHistory();
+  }
+
+  function renderHistory() {
+    const el = document.getElementById("historyContent");
+    if (history.length === 0) {
+      el.innerHTML = `<div class="empty-history"><div class="icon">🎬</div>Analyzed videos will appear here</div>`;
+      return;
+    }
+    el.innerHTML = `<div class="history-grid">${
+      history.map(item => `
+        <div class="history-thumb" onclick='loadHistoryItem(${JSON.stringify(JSON.stringify(item))})'>
+          <img src="https://img.youtube.com/vi/${item.video_id}/mqdefault.jpg" alt="${item.title}" loading="lazy" />
+          <div class="history-thumb-title">${escapeHtml(item.title)}</div>
+        </div>
+      `).join("")
+    }</div>`;
+  }
+
+  function loadHistoryItem(jsonStr) {
+    const data = JSON.parse(jsonStr);
+    renderResult(data);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  async function analyze() {
+    const url = document.getElementById("urlInput").value.trim();
+    if (!url) return;
+
+    const btn = document.getElementById("analyzeBtn");
+    btn.disabled = true;
+
+    document.getElementById("loading").style.display = "block";
+    document.getElementById("errorBox").style.display = "none";
+    document.getElementById("resultCard").style.display = "none";
+
+    try {
+      const res = await fetch("/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url })
+      });
+      const data = await res.json();
+
+      document.getElementById("loading").style.display = "none";
+
+      if (!res.ok) {
+        showError(data.error || "Something went wrong. Please try again.");
+        return;
+      }
+
+      renderResult(data);
+      saveToHistory(data);
+    } catch (err) {
+      document.getElementById("loading").style.display = "none";
+      showError("Network error — is the app running? Try refreshing.");
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function showError(msg) {
+    const el = document.getElementById("errorBox");
+    el.textContent = msg;
+    el.style.display = "block";
+  }
+
+  function renderResult(data) {
+    // Thumbnail + play link
+    document.getElementById("videoHeader").innerHTML = `
+      <img src="https://img.youtube.com/vi/${data.video_id}/maxresdefault.jpg"
+           onerror="this.src='https://img.youtube.com/vi/${data.video_id}/hqdefault.jpg'"
+           alt="${escapeHtml(data.title)}" />
+      <a class="video-play-overlay" href="${escapeHtml(data.url)}" target="_blank" rel="noopener">
+        <div class="play-btn">
+          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </div>
+      </a>
+    `;
+
+    document.getElementById("videoTitle").textContent = data.title;
+    document.getElementById("videoSummary").textContent = data.summary;
+
+    document.getElementById("keyPoints").innerHTML = data.key_points.map(kp => `
+      <li class="key-point">
+        <div class="kp-emoji">${kp.emoji}</div>
+        <div class="kp-text">
+          <div class="kp-heading">${escapeHtml(kp.heading)}</div>
+          <div class="kp-detail">${escapeHtml(kp.detail)}</div>
+        </div>
+      </li>
+    `).join("");
+
+    document.getElementById("takeaway").textContent = data.takeaway;
+
+    document.getElementById("resultCard").style.display = "block";
+    document.getElementById("resultCard").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  // Enter key submits
+  document.getElementById("urlInput").addEventListener("keydown", e => {
+    if (e.key === "Enter") analyze();
+  });
+
+  renderHistory();
+</script>
+</body>
+</html>
