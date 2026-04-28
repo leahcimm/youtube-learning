@@ -1,19 +1,16 @@
 #!/bin/bash
 set -e
 
-# Load .env if it exists
-if [ -f .env ]; then
-  export $(grep -v '^#' .env | xargs)
-fi
-
 # Install dependencies if needed
-if ! python3 -c "import flask" 2>/dev/null; then
-  pip3 install -r requirements.txt
-fi
+python3 -c "import flask, youtube_transcript_api, jieba, sklearn" 2>/dev/null || {
+  echo "Installing dependencies..."
+  pip3 install -r requirements.txt -q
+}
 
 echo ""
 echo "  YouTube Learning is running!"
-echo "  Open: http://localhost:5000"
+echo "  Open: http://localhost:8080"
 echo ""
 
-python3 app.py
+export PYTHONPATH="$(dirname "$0")"
+python3 "$(dirname "$0")/app.py"

@@ -1,17 +1,16 @@
 import os
-import json
-import anthropic
+import re
 from flask import Flask, render_template, request, jsonify
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
-import re
+from summarizer import extract_key_points
 
 app = Flask(__name__)
 
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+PRIORITY_LANGS = ["en", "zh-Hans", "zh-TW", "zh", "es", "fr", "de", "ja", "ko"]
 
 
-def extract_video_id(url: str) -> str | None:
+def extract_video_id(url: str):
     patterns = [
         r"(?:v=|\/)([0-9A-Za-z_-]{11}).*",
         r"(?:embed\/)([0-9A-Za-z_-]{11})",
@@ -25,49 +24,32 @@ def extract_video_id(url: str) -> str | None:
     return None
 
 
-def get_transcript(video_id: str) -> str:
-    transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
-    return " ".join(entry["text"] for entry in transcript_list)
+def get_snippets(video_id: str) -> list[dict]:
+    api = YouTubeTranscriptApi()
+    try:
+        transcript_list = api.list(video_id)
+    except Exception as e:
+        raise Exception(f"Could not list transcripts: {e}")
 
+    # Try preferred languages in order
+    for lang in PRIORITY_LANGS:
+        try:
+            t = transcript_list.find_transcript([lang])
+            snippets = list(t.fetch())
+            return [{"text": s.text, "start": s.start, "duration": s.duration} for s in snippets]
+        except Exception:
+            continue
 
-def extract_key_points(transcript: str, video_url: str) -> dict:
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    # Fall back to any available transcript
+    try:
+        available = list(transcript_list)
+        if available:
+            snippets = list(available[0].fetch())
+            return [{"text": s.text, "start": s.start, "duration": s.duration} for s in snippets]
+    except Exception:
+        pass
 
-    response = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=2048,
-        messages=[
-            {
-                "role": "user",
-                "content": f"""Analyze this YouTube video transcript and extract the most important learning points.
-
-Return a JSON object with this exact structure:
-{{
-  "title": "A short descriptive title for this video (max 8 words)",
-  "summary": "2-3 sentence summary of what the video is about",
-  "key_points": [
-    {{
-      "emoji": "relevant emoji",
-      "heading": "Short heading (max 6 words)",
-      "detail": "1-2 sentence explanation"
-    }}
-  ],
-  "takeaway": "The single most important thing to remember from this video (1 sentence)"
-}}
-
-Extract 5-8 key points. Be concise and educational. Make headings punchy and memorable.
-
-Transcript:
-{transcript[:8000]}""",
-            }
-        ],
-    )
-
-    text = response.content[0].text
-    json_match = re.search(r"\{.*\}", text, re.DOTALL)
-    if json_match:
-        return json.loads(json_match.group())
-    return json.loads(text)
+    raise NoTranscriptFound(video_id, PRIORITY_LANGS, None)
 
 
 @app.route("/")
@@ -83,15 +65,12 @@ def analyze():
     if not url:
         return jsonify({"error": "Please paste a YouTube URL"}), 400
 
-    if not ANTHROPIC_API_KEY:
-        return jsonify({"error": "ANTHROPIC_API_KEY not set. Add it to your .env file."}), 500
-
     video_id = extract_video_id(url)
     if not video_id:
         return jsonify({"error": "Could not find a valid YouTube video ID in that URL"}), 400
 
     try:
-        transcript = get_transcript(video_id)
+        snippets = get_snippets(video_id)
     except TranscriptsDisabled:
         return jsonify({"error": "This video has captions/transcripts disabled"}), 400
     except NoTranscriptFound:
@@ -100,15 +79,13 @@ def analyze():
         return jsonify({"error": f"Could not fetch transcript: {str(e)}"}), 400
 
     try:
-        result = extract_key_points(transcript, url)
+        result = extract_key_points(snippets)
         result["video_id"] = video_id
         result["url"] = url
         return jsonify(result)
-    except json.JSONDecodeError:
-        return jsonify({"error": "Failed to parse AI response. Try again."}), 500
     except Exception as e:
-        return jsonify({"error": f"AI analysis failed: {str(e)}"}), 500
+        return jsonify({"error": f"Analysis failed: {str(e)}"}), 500
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=8080)
